@@ -43,9 +43,17 @@ Next.js 14 (App Router, TS) · Tailwind CSS · Neon Postgres (source of truth) �
 - **Provider APIs drift:** re-check the current official provider docs (auth, scopes, pagination, rate limits) before implementing each connector.
 - **Error shape:** `{ error: { code, message, details } }` — `message` is user-safe, `details` never contains secrets.
 
-## Current state (Phase 1 scaffold)
+## Current state
 
-App shell only: sidebar (`app/components/sidebar.tsx`), overview page with placeholder data (`app/page.tsx`), status badge (`app/components/status-badge.tsx`). No DB, auth, connectors, or real data yet — those are Phases 2–4 in `doc/11-roadmap-and-phases.md`.
+- **Auth** — email/password, signed-JWT session (`lib/auth.ts`), 1h sliding session reissued in `middleware.ts`. Dashboard lives under the `app/(app)/` route group; `/login` is outside it.
+- **DB** — Drizzle + Neon (`lib/db.ts`, `lib/schema.ts`): `users`, `workspaces`, `workspace_members`, `provider_accounts`, `provider_credentials`, `assets`, `sync_runs`. Push with `npm run db:push`.
+- **Connectors** — `lib/connectors/` (common interface in `types.ts`, registry in `index.ts`). Live: **github**, **vercel** (API-token flow, read-only). `lib/connections.ts` owns connect/resync/disconnect + workspace-scoped reads.
+- **Crypto** — `lib/crypto.ts`, AES-256-GCM from `NEXUS_ENCRYPTION_KEY`, server-only. Tokens encrypted before store, never returned to the browser.
+- **UI** — overview, integrations catalog (`/integrations`), connect flow (`/connect/[provider]`), connections list + detail (`/connections`, `/connections/[id]`).
+
+Not yet built: alerts/health_checks/audit_events tables, background sync jobs, OAuth flows, the remaining connectors. See `doc/11-roadmap-and-phases.md`.
+
+Deliberate shortcuts (grep `ponytail:`): asset sync upserts seen rows only (no pruning of provider-deleted assets); no transactions (neon-http driver).
 
 ## Committing (repo rules)
 

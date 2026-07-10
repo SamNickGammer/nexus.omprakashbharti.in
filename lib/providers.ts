@@ -1,5 +1,6 @@
 import {
   siGithub,
+  siVercel,
   siSupabase,
   siNeon,
   siCloudflare,
@@ -7,22 +8,24 @@ import {
   siGodaddy,
   type SimpleIcon,
 } from "simple-icons";
+import { CONNECTABLE } from "./connectors";
 
-// The ProviderKey union from doc/04. `icon` is a simple-icons brand mark where
-// one exists; the rest fall back to a branded monogram tile (Slack/AWS/Azure
-// were pulled from simple-icons for trademark reasons).
+// The provider catalog (doc/04). `icon` is a simple-icons brand mark where one
+// exists; the rest fall back to a branded monogram tile. `connectable` is
+// derived from the connector registry.
 export type Provider = {
   key: string;
   name: string;
   category: string;
   desc: string;
-  brand: string; // hex, drives tile/logo color
+  brand: string; // hex
   icon?: SimpleIcon;
-  mono?: string; // fallback initials when no icon
+  mono?: string;
 };
 
 export const PROVIDERS: Provider[] = [
   { key: "github", name: "GitHub", category: "Source", desc: "Repositories, branches, and commit activity.", brand: `#${siGithub.hex}`, icon: siGithub },
+  { key: "vercel", name: "Vercel", category: "Hosting", desc: "Projects, deployments, and production domains.", brand: "#ffffff", icon: siVercel },
   { key: "neon", name: "Neon", category: "Database", desc: "Postgres projects, branches, and databases.", brand: `#${siNeon.hex}`, icon: siNeon },
   { key: "supabase", name: "Supabase", category: "Database", desc: "Projects, tables, and edge functions.", brand: `#${siSupabase.hex}`, icon: siSupabase },
   { key: "cloudflare", name: "Cloudflare", category: "DNS & Network", desc: "Zones, DNS records, and SSL status.", brand: `#${siCloudflare.hex}`, icon: siCloudflare },
@@ -33,3 +36,11 @@ export const PROVIDERS: Provider[] = [
   { key: "azure", name: "Azure", category: "Cloud", desc: "Subscriptions and resource groups.", brand: "#0078D4", mono: "AZ" },
   { key: "manual_vps", name: "Manual VPS", category: "Servers", desc: "Track any server by IP + SSH metadata.", brand: "#12e0ea", mono: "VPS" },
 ];
+
+export function getProvider(key: string): Provider | undefined {
+  return PROVIDERS.find((p) => p.key === key);
+}
+
+export function isConnectable(key: string): boolean {
+  return CONNECTABLE.includes(key);
+}

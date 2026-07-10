@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 // Sidebar sections (doc/07). Items with an href are live routes; the rest are
 // placeholders until their pages land, shown dimmed and non-clickable.
 const SECTIONS: { title: string; items: { label: string; href?: string }[] }[] = [
-  { title: "MAIN", items: [{ label: "Overview", href: "/" }, { label: "Alerts" }, { label: "Integrations", href: "/integrations" }] },
+  { title: "MAIN", items: [{ label: "Overview", href: "/" }, { label: "Connections", href: "/connections" }, { label: "Integrations", href: "/integrations" }, { label: "Alerts" }] },
   { title: "INFRA", items: [{ label: "Domains & DNS" }, { label: "Databases" }, { label: "Websites" }, { label: "Servers" }] },
   { title: "OBSERVE", items: [{ label: "Git" }, { label: "Logs" }] },
   { title: "SYSTEM", items: [{ label: "Settings" }] },

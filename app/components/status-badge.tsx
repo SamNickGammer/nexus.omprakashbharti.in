@@ -1,20 +1,21 @@
-// Status chip — the signature health indicator from the ops-console reference.
-
+// Status chip — terminal tag with a leading glyph, colored off the theme vars.
 export type Status = "healthy" | "degraded" | "high" | "offline" | "deploying";
 
-const STYLES: Record<Status, string> = {
-  healthy: "border-emerald-700 bg-emerald-950 text-emerald-400",
-  degraded: "border-yellow-700 bg-yellow-950 text-yellow-400",
-  high: "border-orange-700 bg-orange-950 text-orange-400",
-  offline: "border-red-700 bg-red-950 text-red-400",
-  deploying: "border-blue-700 bg-blue-950 text-blue-400",
+const MAP: Record<Status, { color: string; glyph: string }> = {
+  healthy: { color: "text-ok", glyph: "●" },
+  degraded: { color: "text-warn", glyph: "▲" },
+  high: { color: "text-hot", glyph: "▲" },
+  offline: { color: "text-down", glyph: "■" },
+  deploying: { color: "text-blue", glyph: "◇" },
 };
 
 export function StatusBadge({ status }: { status: Status }) {
+  const { color, glyph } = MAP[status];
   return (
     <span
-      className={`inline-block rounded border px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ${STYLES[status]}`}
+      className={`inline-flex items-center gap-1.5 border border-edge bg-panel px-2 py-0.5 text-[11px] uppercase tracking-wide ${color}`}
     >
+      <span aria-hidden>{glyph}</span>
       {status}
     </span>
   );

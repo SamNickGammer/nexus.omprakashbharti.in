@@ -1,0 +1,14 @@
+import { config } from "dotenv";
+import { defineConfig } from "drizzle-kit";
+
+config({ path: ".env.local" });
+
+// Migrations run against the direct (unpooled) URL; fall back to pooled.
+export default defineConfig({
+  schema: "./lib/schema.ts",
+  out: "./drizzle",
+  dialect: "postgresql",
+  dbCredentials: {
+    url: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!,
+  },
+});

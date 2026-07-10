@@ -1,4 +1,4 @@
-import { StatusBadge, type Status } from "./components/status-badge";
+import { StatusBadge, type Status } from "../components/status-badge";
 
 // Overview shell. Placeholder data until connectors + Neon land (Phase 2+).
 const STATS = [

@@ -2,8 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Nexus — ops cockpit",
+  title: {
+    default: "Nexus — ops cockpit",
+    template: "%s · Nexus",
+  },
   description: "Developer operations cockpit",
+  icons: { icon: "/icon.png" },
 };
 
 export default function RootLayout({

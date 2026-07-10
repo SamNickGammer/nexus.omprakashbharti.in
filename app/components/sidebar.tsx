@@ -4,16 +4,10 @@ import { db } from "@/lib/db";
 import { workspaces } from "@/lib/schema";
 import { getSession } from "@/lib/auth";
 import { signOut } from "@/app/actions";
+import { Nav } from "./nav";
 
 // Persistent left-nav. Terminal aesthetic: bracketed section headers,
-// monospace items, live status strip at the foot. Sections per doc/07.
-const SECTIONS: { title: string; items: { label: string; active?: boolean }[] }[] = [
-  { title: "MAIN", items: [{ label: "Overview", active: true }, { label: "Alerts" }, { label: "Integrations" }] },
-  { title: "INFRA", items: [{ label: "Domains & DNS" }, { label: "Databases" }, { label: "Websites" }, { label: "Servers" }] },
-  { title: "OBSERVE", items: [{ label: "Git" }, { label: "Logs" }] },
-  { title: "SYSTEM", items: [{ label: "Settings" }] },
-];
-
+// monospace items, live status strip at the foot.
 export async function Sidebar() {
   const session = await getSession();
   const [ws] = session
@@ -41,32 +35,7 @@ export async function Sidebar() {
       </div>
 
       {/* nav */}
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
-        {SECTIONS.map((section) => (
-          <div key={section.title}>
-            <p className="px-1 pb-2 text-[10px] tracking-[0.3em] text-dim">
-              [{section.title}]
-            </p>
-            <ul className="space-y-px">
-              {section.items.map((item) => (
-                <li
-                  key={item.label}
-                  className={`group flex cursor-pointer items-center gap-2 border-l-2 px-2 py-1.5 text-[13px] transition-colors ${
-                    item.active
-                      ? "border-cyan bg-surface text-text"
-                      : "border-transparent text-muted hover:border-edge-bright hover:text-text"
-                  }`}
-                >
-                  <span className={item.active ? "text-cyan" : "text-dim group-hover:text-muted"}>
-                    {item.active ? "›" : " "}
-                  </span>
-                  {item.label}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </nav>
+      <Nav />
 
       {/* status strip */}
       <div className="border-t border-edge px-4 py-3 text-[11px]">

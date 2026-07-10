@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const COOKIE = "nexus_session";
-const MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+export const SESSION_COOKIE = "nexus_session";
+const MAX_AGE = 60 * 60; // 1 hour — middleware slides it forward on activity
 
 function secret() {
   const s = process.env.AUTH_SECRET;
@@ -29,7 +29,7 @@ export async function createSession(session: Session) {
     .setExpirationTime(`${MAX_AGE}s`)
     .sign(secret());
 
-  cookies().set(COOKIE, token, {
+  cookies().set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -39,7 +39,7 @@ export async function createSession(session: Session) {
 }
 
 export async function getSession(): Promise<Session | null> {
-  const token = cookies().get(COOKIE)?.value;
+  const token = cookies().get(SESSION_COOKIE)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret());
@@ -50,5 +50,5 @@ export async function getSession(): Promise<Session | null> {
 }
 
 export function clearSession() {
-  cookies().delete(COOKIE);
+  cookies().delete(SESSION_COOKIE);
 }

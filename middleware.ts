@@ -1,30 +1,47 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { jwtVerify } from "jose";
+import { SignJWT, jwtVerify } from "jose";
 
-// Edge-safe gate: verify the signed session cookie, bounce to /login if absent.
-const secret = () => new TextEncoder().encode(process.env.AUTH_SECRET);
+// Edge-safe auth gate + sliding session.
+// The access token lives 1h. On every authenticated request we verify it and
+// mint a fresh 1h token, so an active user is silently revalidated and an idle
+// one is logged out an hour after their last request.
+const TTL = 60 * 60; // 1 hour
+const key = () => new TextEncoder().encode(process.env.AUTH_SECRET);
 
 export async function middleware(req: NextRequest) {
   const token = req.cookies.get("nexus_session")?.value;
-  let valid = false;
+
   if (token) {
     try {
-      await jwtVerify(token, secret());
-      valid = true;
+      const { payload } = await jwtVerify(token, key());
+      const res = NextResponse.next();
+      const fresh = await new SignJWT({
+        userId: payload.userId,
+        workspaceId: payload.workspaceId,
+      })
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime(`${TTL}s`)
+        .sign(key());
+      res.cookies.set("nexus_session", fresh, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: TTL,
+      });
+      return res;
     } catch {
-      valid = false;
+      // fall through to redirect
     }
   }
 
-  if (!valid) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-  return NextResponse.next();
+  const url = req.nextUrl.clone();
+  url.pathname = "/login";
+  return NextResponse.redirect(url);
 }
 
-// Protect everything except the login page, auth assets, and static files.
+// Everything except the login page, auth assets, favicon and logo images.
 export const config = {
-  matcher: ["/((?!login|_next/static|_next/image|favicon.ico|logo_).*)"],
+  matcher: ["/((?!login|_next/static|_next/image|favicon.ico|icon.png|logo_).*)"],
 };

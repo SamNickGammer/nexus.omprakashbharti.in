@@ -36,7 +36,7 @@ export const github: Connector = {
     return { externalAccountId: String(u.id), externalAccountName: u.login, scopes } satisfies VerifyResult;
   },
 
-  async sync(token) {
+  async sync(token, _ctx) {
     const out: NormalizedAsset[] = [];
     // paginate owned repos, newest activity first
     for (let page = 1; page <= 10; page++) {

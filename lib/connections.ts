@@ -46,7 +46,7 @@ export async function connectProvider(opts: {
   });
 
   // 3. initial sync
-  await runSync(account.id, opts.workspaceId, opts.provider, opts.token);
+  await runSync(account, opts.token);
   return account.id;
 }
 
@@ -54,7 +54,7 @@ export async function resyncAccount(accountId: string, workspaceId: string) {
   const account = await getAccount(accountId, workspaceId);
   if (!account) throw new ConnectorError("unknown_error", "Connection not found.");
   const token = await loadToken(accountId);
-  await runSync(accountId, workspaceId, account.provider, token);
+  await runSync(account, token);
 }
 
 export async function disconnectAccount(accountId: string, workspaceId: string) {
@@ -76,7 +76,11 @@ async function loadToken(accountId: string): Promise<string> {
   return decrypt(cred.payload);
 }
 
-async function runSync(accountId: string, workspaceId: string, provider: string, token: string) {
+async function runSync(
+  account: { id: string; workspaceId: string; provider: string; externalAccountName: string | null },
+  token: string,
+) {
+  const { id: accountId, workspaceId, provider } = account;
   const connector = getConnector(provider)!;
   const [run] = await db
     .insert(syncRuns)
@@ -84,7 +88,7 @@ async function runSync(accountId: string, workspaceId: string, provider: string,
     .returning();
 
   try {
-    const items = await connector.sync(token);
+    const items = await connector.sync(token, { accountName: account.externalAccountName });
     if (items.length) await upsertAssets(workspaceId, accountId, items);
     await db
       .update(syncRuns)
@@ -187,6 +191,67 @@ export async function connectionCounts(workspaceId: string) {
     .where(eq(providerAccounts.workspaceId, workspaceId))
     .groupBy(providerAccounts.provider);
   return Object.fromEntries(rows.map((r) => [r.provider, r.count])) as Record<string, number>;
+}
+
+// Every asset in the workspace, tagged with its source account — powers the
+// global search panel and the Infra pages.
+export async function listAllAssets(workspaceId: string) {
+  return db
+    .select({
+      id: assets.id,
+      name: assets.name,
+      displayName: assets.displayName,
+      assetType: assets.assetType,
+      status: assets.status,
+      environment: assets.environment,
+      externalUrl: assets.externalUrl,
+      providerConsoleUrl: assets.providerConsoleUrl,
+      lastSyncedAt: assets.lastSyncedAt,
+      accountId: providerAccounts.id,
+      accountLabel: providerAccounts.label,
+      provider: providerAccounts.provider,
+    })
+    .from(assets)
+    .innerJoin(providerAccounts, eq(assets.providerAccountId, providerAccounts.id))
+    .where(eq(assets.workspaceId, workspaceId))
+    .orderBy(desc(assets.lastSyncedAt));
+}
+
+export async function listAssetsByType(workspaceId: string, assetType: string) {
+  return (await listAllAssets(workspaceId)).filter((a) => a.assetType === assetType);
+}
+
+// One asset + its source account. For domain/website assets we also resolve the
+// cross-linked partner (project ↔ domain) via metadata references.
+export async function getAssetDetail(assetId: string, workspaceId: string) {
+  const [asset] = await db
+    .select()
+    .from(assets)
+    .where(and(eq(assets.id, assetId), eq(assets.workspaceId, workspaceId)))
+    .limit(1);
+  if (!asset) return null;
+
+  const account = await getAccount(asset.providerAccountId, workspaceId);
+  const meta = (asset.metadata ?? {}) as Record<string, any>;
+
+  // resolve linked assets within the same account
+  let linked: { id: string; name: string; assetType: string; status: string | null }[] = [];
+  if (asset.assetType === "website" && Array.isArray(meta.domains) && meta.domains.length) {
+    const names = meta.domains.map((d: any) => d.name);
+    const rows = await db
+      .select({ id: assets.id, name: assets.name, assetType: assets.assetType, status: assets.status })
+      .from(assets)
+      .where(and(eq(assets.workspaceId, workspaceId), eq(assets.providerAccountId, asset.providerAccountId), eq(assets.assetType, "domain")));
+    linked = rows.filter((r) => names.includes(r.name));
+  } else if (asset.assetType === "domain" && meta.projectExternalId) {
+    const rows = await db
+      .select({ id: assets.id, name: assets.name, assetType: assets.assetType, status: assets.status })
+      .from(assets)
+      .where(and(eq(assets.workspaceId, workspaceId), eq(assets.providerAccountId, asset.providerAccountId), eq(assets.assetType, "website"), eq(assets.externalId, String(meta.projectExternalId))));
+    linked = rows;
+  }
+
+  return { asset, account, linked };
 }
 
 export async function getConnectionDetail(accountId: string, workspaceId: string) {

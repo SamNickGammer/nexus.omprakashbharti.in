@@ -120,7 +120,11 @@ export default async function ConnectionDetailPage({ params }: { params: { id: s
               <tbody>
                 {assets.map((a) => (
                   <tr key={a.id} className="border-t border-edge hover:bg-surface">
-                    <td className="px-4 py-2.5 text-text">{a.displayName ?? a.name}</td>
+                    <td className="px-4 py-2.5">
+                      <Link href={`/assets/${a.id}`} className="text-text hover:text-cyan">
+                        {a.displayName ?? a.name}
+                      </Link>
+                    </td>
                     <td className="px-4 py-2.5 text-muted">{a.assetType}</td>
                     <td className="px-4 py-2.5 text-muted">{a.status ?? "—"}</td>
                     <td className="px-4 py-2.5 text-[12px] text-dim">{detailBits(a.metadata)}</td>

@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 // placeholders until their pages land, shown dimmed and non-clickable.
 const SECTIONS: { title: string; items: { label: string; href?: string }[] }[] = [
   { title: "MAIN", items: [{ label: "Overview", href: "/" }, { label: "Connections", href: "/connections" }, { label: "Integrations", href: "/integrations" }, { label: "Alerts" }] },
-  { title: "INFRA", items: [{ label: "Domains & DNS" }, { label: "Databases" }, { label: "Websites" }, { label: "Servers" }] },
+  { title: "INFRA", items: [{ label: "Domains & DNS", href: "/domains" }, { label: "Databases" }, { label: "Websites" }, { label: "Servers" }] },
   { title: "OBSERVE", items: [{ label: "Git" }, { label: "Logs" }] },
   { title: "SYSTEM", items: [{ label: "Settings" }] },
 ];

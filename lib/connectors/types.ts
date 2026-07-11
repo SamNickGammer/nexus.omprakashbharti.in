@@ -35,9 +35,12 @@ export class ConnectorError extends Error {
   }
 }
 
+// Context passed into sync so connectors can build correct console URLs, etc.
+export type SyncContext = { accountName?: string | null };
+
 export interface Connector {
   provider: string;
   tokenHelpUrl: string; // where the user creates a token
   verify(token: string): Promise<VerifyResult>;
-  sync(token: string): Promise<NormalizedAsset[]>;
+  sync(token: string, ctx?: SyncContext): Promise<NormalizedAsset[]>;
 }

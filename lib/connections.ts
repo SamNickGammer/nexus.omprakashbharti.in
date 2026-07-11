@@ -179,6 +179,7 @@ export async function listConnections(workspaceId: string) {
       externalAccountName: providerAccounts.externalAccountName,
       status: providerAccounts.status,
       lastSyncAt: providerAccounts.lastSyncAt,
+      repoCount: sql<number>`count(*) filter (where ${assets.assetType} = 'repository')::int`,
       projectCount: sql<number>`count(*) filter (where ${assets.assetType} = 'website')::int`,
       domainCount: sql<number>`count(*) filter (where ${assets.assetType} = 'domain')::int`,
       assetCount: sql<number>`count(${assets.id})::int`,
@@ -225,6 +226,47 @@ export async function listAllAssets(workspaceId: string) {
 
 export async function listAssetsByType(workspaceId: string, assetType: string) {
   return (await listAllAssets(workspaceId)).filter((a) => a.assetType === assetType);
+}
+
+// All repositories across GitHub accounts, richest first (by stars).
+export async function listRepos(workspaceId: string) {
+  return db
+    .select({
+      id: assets.id,
+      name: assets.name,
+      displayName: assets.displayName,
+      status: assets.status,
+      externalUrl: assets.externalUrl,
+      metadata: assets.metadata,
+      accountLabel: providerAccounts.label,
+      provider: providerAccounts.provider,
+    })
+    .from(assets)
+    .innerJoin(providerAccounts, eq(assets.providerAccountId, providerAccounts.id))
+    .where(and(eq(assets.workspaceId, workspaceId), eq(assets.assetType, "repository")))
+    .orderBy(sql`(${assets.metadata}->>'stars')::int desc nulls last`, assets.name);
+}
+
+// Sync activity across all connections — powers the Logs stream.
+export async function listSyncRuns(workspaceId: string, limit = 100) {
+  return db
+    .select({
+      id: syncRuns.id,
+      status: syncRuns.status,
+      syncType: syncRuns.syncType,
+      resourcesSeen: syncRuns.resourcesSeen,
+      startedAt: syncRuns.startedAt,
+      finishedAt: syncRuns.finishedAt,
+      errorCode: syncRuns.errorCode,
+      errorMessage: syncRuns.errorMessage,
+      provider: providerAccounts.provider,
+      label: providerAccounts.label,
+    })
+    .from(syncRuns)
+    .innerJoin(providerAccounts, eq(syncRuns.providerAccountId, providerAccounts.id))
+    .where(eq(syncRuns.workspaceId, workspaceId))
+    .orderBy(desc(syncRuns.startedAt))
+    .limit(limit);
 }
 
 // One asset + its source account. For domain/website assets we also resolve the

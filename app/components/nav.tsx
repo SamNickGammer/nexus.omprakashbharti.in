@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 const SECTIONS: { title: string; items: { label: string; href?: string }[] }[] = [
   { title: "MAIN", items: [{ label: "Overview", href: "/" }, { label: "Connections", href: "/connections" }, { label: "Integrations", href: "/integrations" }, { label: "Alerts" }] },
   { title: "INFRA", items: [{ label: "Domains & DNS", href: "/domains" }, { label: "Databases" }, { label: "Websites" }, { label: "Servers" }] },
-  { title: "OBSERVE", items: [{ label: "Git" }, { label: "Logs" }] },
+  { title: "OBSERVE", items: [{ label: "Git", href: "/git" }, { label: "Logs", href: "/logs" }] },
   { title: "SYSTEM", items: [{ label: "Settings" }] },
 ];
 

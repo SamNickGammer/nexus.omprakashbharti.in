@@ -24,12 +24,13 @@ export default async function OverviewPage() {
 
   const projects = assets.filter((a) => a.assetType === "website");
   const domains = assets.filter((a) => a.assetType === "domain");
+  const repos = assets.filter((a) => a.assetType === "repository");
   const attention = assets.filter((a) => a.status && ATTENTION.has(a.status));
 
   const stats = [
-    { label: "assets_tracked", value: assets.length, hint: `${conns.length} connections`, tone: "text-text" },
-    { label: "projects", value: projects.length, hint: "websites & apps", tone: "text-ok" },
-    { label: "domains", value: domains.length, hint: "custom domains", tone: "text-text" },
+    { label: "repos", value: repos.length, hint: "git repositories", tone: "text-violet", href: "/git" },
+    { label: "projects", value: projects.length, hint: "websites & apps", tone: "text-ok", href: "/websites" },
+    { label: "domains", value: domains.length, hint: "custom domains", tone: "text-text", href: "/domains" },
     { label: "needs_attention", value: attention.length, hint: "unverified / errored", tone: attention.length ? "text-down" : "text-ok" },
   ];
 
@@ -55,13 +56,22 @@ export default async function OverviewPage() {
       </section>
 
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map((s) => (
-          <div key={s.label} className="term-panel p-4">
-            <p className="text-[11px] tracking-wide text-dim">{s.label}</p>
-            <p className={`mt-2 text-3xl font-bold ${s.tone}`}>{s.value}</p>
-            <p className="mt-1 text-[11px] text-muted">{s.hint}</p>
-          </div>
-        ))}
+        {stats.map((s) => {
+          const inner = (
+            <>
+              <p className="text-[11px] tracking-wide text-dim">{s.label}</p>
+              <p className={`mt-2 text-3xl font-bold ${s.tone}`}>{s.value}</p>
+              <p className="mt-1 text-[11px] text-muted">{s.hint}</p>
+            </>
+          );
+          return "href" in s && s.href ? (
+            <Link key={s.label} href={s.href} className="term-panel block p-4 transition-colors hover:border-edge-bright">
+              {inner}
+            </Link>
+          ) : (
+            <div key={s.label} className="term-panel p-4">{inner}</div>
+          );
+        })}
       </section>
 
       <section className="term-panel">
@@ -110,6 +120,43 @@ export default async function OverviewPage() {
           </div>
         )}
       </section>
+
+      {repos.length > 0 && (
+        <section className="term-panel">
+          <div className="flex items-center justify-between border-b border-edge px-4 py-3">
+            <span className="text-sm text-text">
+              repositories<span className="text-dim"> // {repos.length}</span>
+            </span>
+            <Link href="/git" className="text-[11px] text-dim hover:text-cyan">view all →</Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wide text-dim">
+                  <th className="px-4 py-2 font-normal">name</th>
+                  <th className="px-4 py-2 font-normal">source</th>
+                  <th className="px-4 py-2 font-normal">visibility</th>
+                </tr>
+              </thead>
+              <tbody>
+                {repos.slice(0, 8).map((a) => (
+                  <tr key={a.id} className="border-t border-edge hover:bg-surface">
+                    <td className="px-4 py-3">
+                      <Link href={`/assets/${a.id}`} className="text-text hover:text-cyan">
+                        {a.displayName ?? a.name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-dim">{a.provider} · {a.accountLabel}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[11px] uppercase ${tone(a.status)}`}>{a.status ?? "—"}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

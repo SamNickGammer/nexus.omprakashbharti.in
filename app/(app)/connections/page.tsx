@@ -13,6 +13,15 @@ const STATUS: Record<string, string> = {
   disconnected: "text-down",
 };
 
+// show whichever asset kinds this connection actually has
+function countLabel(c: { repoCount: number; projectCount: number; domainCount: number }): string {
+  const parts: string[] = [];
+  if (c.repoCount) parts.push(`${c.repoCount} repos`);
+  if (c.projectCount) parts.push(`${c.projectCount} projects`);
+  if (c.domainCount) parts.push(`${c.domainCount} domains`);
+  return parts.length ? parts.join(" · ") : "0 assets";
+}
+
 function ago(d: Date | null): string {
   if (!d) return "never";
   const mins = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
@@ -68,7 +77,7 @@ export default async function ConnectionsPage() {
                     <span className={`text-[11px] uppercase ${STATUS[c.status] ?? "text-dim"}`}>● {c.status}</span>
                   </div>
                   <div className="text-[11px] text-dim">
-                    {provider?.name} · {c.projectCount} projects · {c.domainCount} domains · synced {ago(c.lastSyncAt)}
+                    {provider?.name} · {countLabel(c)} · synced {ago(c.lastSyncAt)}
                   </div>
                 </div>
                 <span className="text-dim">›</span>

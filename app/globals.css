@@ -126,3 +126,46 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .cursor, .pulse-dot { animation: none; }
 }
+
+/* rendered README — preflight strips these, so restore readable defaults */
+.readme-md h1,
+.readme-md h2,
+.readme-md h3 {
+  color: var(--text);
+  font-weight: 600;
+  margin: 1.4em 0 0.6em;
+  line-height: 1.3;
+}
+.readme-md h1 { font-size: 1.5em; border-bottom: 1px solid var(--edge); padding-bottom: 0.3em; }
+.readme-md h2 { font-size: 1.25em; border-bottom: 1px solid var(--edge); padding-bottom: 0.25em; }
+.readme-md h3 { font-size: 1.1em; }
+.readme-md p { margin: 0.7em 0; }
+.readme-md a { color: var(--cyan); text-decoration: underline; }
+.readme-md ul, .readme-md ol { margin: 0.7em 0; padding-left: 1.4em; }
+.readme-md ul { list-style: disc; }
+.readme-md ol { list-style: decimal; }
+.readme-md li { margin: 0.25em 0; }
+.readme-md code {
+  background: var(--bg);
+  border: 1px solid var(--edge);
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+.readme-md pre {
+  background: var(--bg);
+  border: 1px solid var(--edge);
+  padding: 0.9em;
+  overflow-x: auto;
+  margin: 0.8em 0;
+}
+.readme-md pre code { background: none; border: 0; padding: 0; }
+.readme-md blockquote {
+  border-left: 2px solid var(--edge-bright);
+  padding-left: 1em;
+  color: var(--dim);
+  margin: 0.8em 0;
+}
+.readme-md img { max-width: 100%; display: inline-block; }
+.readme-md table { border-collapse: collapse; margin: 0.8em 0; display: block; overflow-x: auto; }
+.readme-md th, .readme-md td { border: 1px solid var(--edge); padding: 0.4em 0.7em; }
+.readme-md hr { border: 0; border-top: 1px solid var(--edge); margin: 1.2em 0; }

@@ -3,6 +3,7 @@ import { and, eq, sql, desc } from "drizzle-orm";
 import { db } from "./db";
 import { providerAccounts, providerCredentials, assets, syncRuns } from "./schema";
 import { getConnector } from "./connectors";
+import { githubRepoDetail, type RepoDetail } from "./connectors/github";
 import { ConnectorError, type NormalizedAsset } from "./connectors/types";
 import { encrypt, decrypt, fingerprint, ENCRYPTION_KEY_ID } from "./crypto";
 
@@ -257,6 +258,23 @@ export async function getAssetDetail(assetId: string, workspaceId: string) {
   }
 
   return { asset, account, linked };
+}
+
+// Live GitHub repo detail (languages, contributors, commits, branches, readme).
+// Fetched on demand so sync stays light and the DB isn't bloated.
+export async function getRepoLiveDetail(assetId: string, workspaceId: string): Promise<RepoDetail | null> {
+  const [asset] = await db
+    .select()
+    .from(assets)
+    .where(and(eq(assets.id, assetId), eq(assets.workspaceId, workspaceId), eq(assets.assetType, "repository")))
+    .limit(1);
+  if (!asset) return null;
+  try {
+    const token = await loadToken(asset.providerAccountId);
+    return await githubRepoDetail(token, asset.name);
+  } catch {
+    return null;
+  }
 }
 
 export async function getConnectionDetail(accountId: string, workspaceId: string) {

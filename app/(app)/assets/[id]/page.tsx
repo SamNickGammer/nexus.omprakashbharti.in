@@ -2,9 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { getAssetDetail } from "@/lib/connections";
+import { getAssetDetail, getRepoLiveDetail } from "@/lib/connections";
 import { getProvider } from "@/lib/providers";
 import { ProviderLogo } from "../../../components/provider-logo";
+import { RepoTabs } from "../../../components/repo-tabs";
+
+// stable-ish color per language name (hash → hue)
+function langColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return `hsl(${h} 70% 55%)`;
+}
 
 export const metadata: Metadata = { title: "Asset — Nexus" };
 
@@ -39,6 +47,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
   if (!data) notFound();
 
   const { asset, account, linked } = data;
+  const repo = asset.assetType === "repository" ? await getRepoLiveDetail(asset.id, session.workspaceId) : null;
   const provider = account ? getProvider(account.provider) : undefined;
   const m = (asset.metadata ?? {}) as Record<string, any>;
   const latest = m.latestDeployment as { state?: string; url?: string; createdAt?: unknown } | null;
@@ -158,15 +167,68 @@ export default async function AssetDetailPage({ params }: { params: { id: string
 
       {/* repository (GitHub) */}
       {asset.assetType === "repository" && (
-        <section className="term-panel grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
-          <Stat k="language" v={m.language ?? "—"} />
-          <Stat k="default branch" v={m.defaultBranch ?? "—"} />
-          <Stat k="stars" v={m.stars ?? 0} />
-          <Stat k="open issues" v={m.openIssues ?? 0} />
-          <Stat k="visibility" v={m.visibility ?? "—"} />
-          <Stat k="pushed" v={when(m.pushedAt)} />
-          <Stat k="synced" v={when(asset.lastSyncedAt)} />
-        </section>
+        <>
+          {/* languages + stat chips */}
+          <section className="term-panel space-y-4 p-5">
+            <div>
+              <div className="mb-2 text-[11px] uppercase tracking-wide text-dim">languages</div>
+              <div className="flex flex-wrap gap-2">
+                {repo && repo.languages.length > 0 ? (
+                  repo.languages.map((l) => (
+                    <span key={l.name} className="inline-flex items-center gap-1.5 border border-edge bg-panel px-2 py-1 text-[12px] text-text">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: langColor(l.name) }} />
+                      {l.name}
+                      <span className="text-dim">{l.pct}%</span>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted">{m.language ?? "—"}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {[
+                ["★ stars", m.stars ?? 0],
+                ["open issues", m.openIssues ?? 0],
+                ["default", m.defaultBranch ?? "—"],
+                ["visibility", m.visibility ?? "—"],
+                ["pushed", when(m.pushedAt)],
+                ["synced", when(asset.lastSyncedAt)],
+              ].map(([k, v]) => (
+                <span key={String(k)} className="border border-edge bg-panel px-2.5 py-1 text-[12px] text-muted">
+                  <span className="text-dim">{k}</span> <span className="text-text">{String(v)}</span>
+                </span>
+              ))}
+            </div>
+          </section>
+
+          {/* contributors */}
+          <section className="term-panel p-5">
+            <div className="mb-3 text-[11px] uppercase tracking-wide text-dim">
+              contributors{repo?.contributors.length ? ` // ${repo.contributors.length}` : ""}
+            </div>
+            {repo && repo.contributors.length > 0 ? (
+              <div className="flex flex-wrap gap-4">
+                {repo.contributors.map((c) => (
+                  <a key={c.login} href={c.htmlUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-cyan">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={c.avatarUrl} alt={c.login} width={28} height={28} className="rounded-full border border-edge" referrerPolicy="no-referrer" />
+                    <span className="text-[13px] text-text">{c.login}</span>
+                    <span className="text-[11px] text-dim">{c.contributions}</span>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted">
+                {repo ? "No contributor data." : "Connect GitHub and open this repo to load contributors."}
+              </p>
+            )}
+          </section>
+
+          {/* readme / commits / branches */}
+          {repo && <RepoTabs detail={repo} defaultBranch={m.defaultBranch} />}
+        </>
       )}
     </div>
   );

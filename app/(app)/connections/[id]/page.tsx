@@ -10,27 +10,14 @@ import { resync, disconnect } from "../actions";
 export const metadata: Metadata = { title: "Connection — Nexus" };
 
 const STATUS: Record<string, string> = {
-  active: "text-ok",
-  degraded: "text-warn",
-  disconnected: "text-down",
-  success: "text-ok",
-  failed: "text-down",
-  running: "text-blue",
+  active: "text-ok", degraded: "text-warn", disconnected: "text-down",
+  success: "text-ok", failed: "text-down", running: "text-blue",
+  ready: "text-ok", unknown: "text-muted",
 };
 
 function when(d: Date | string | null): string {
   if (!d) return "—";
   return new Date(d).toISOString().replace("T", " ").slice(0, 16);
-}
-
-// pick a couple of provider-specific detail bits to show inline
-function detailBits(m: Record<string, unknown> | null): string {
-  if (!m) return "";
-  const keys = ["language", "defaultBranch", "framework", "domain", "stars"];
-  return keys
-    .filter((k) => m[k] != null && m[k] !== "")
-    .map((k) => `${k}: ${String(m[k])}`)
-    .join("  ·  ");
 }
 
 export default async function ConnectionDetailPage({ params }: { params: { id: string } }) {
@@ -42,6 +29,11 @@ export default async function ConnectionDetailPage({ params }: { params: { id: s
 
   const { account, credential, assets, runs } = data;
   const provider = getProvider(account.provider);
+
+  // connection page shows PROJECTS only — domains live under Infra / Domains
+  const projects = assets.filter((a) => a.assetType !== "domain");
+  const domainCount = assets.length - projects.length;
+  const projectNoun = account.provider === "github" ? "repos" : "projects";
 
   return (
     <div className="space-y-6 p-6">
@@ -85,10 +77,10 @@ export default async function ConnectionDetailPage({ params }: { params: { id: s
 
         <div className="mt-4 grid grid-cols-2 gap-3 text-[13px] sm:grid-cols-4">
           {[
-            ["assets", String(assets.length)],
+            [projectNoun, String(projects.length)],
+            ["domains", String(domainCount)],
             ["last sync", when(account.lastSyncAt)],
             ["verified", when(account.lastVerifiedAt)],
-            ["scopes", account.scopes?.length ? account.scopes.join(", ") : "—"],
           ].map(([k, v]) => (
             <div key={k}>
               <div className="text-[11px] uppercase tracking-wide text-dim">{k}</div>
@@ -98,12 +90,19 @@ export default async function ConnectionDetailPage({ params }: { params: { id: s
         </div>
       </div>
 
-      {/* synced assets */}
+      {/* projects — no raw URLs; click through to the project detail */}
       <section className="term-panel">
-        <div className="border-b border-edge px-4 py-3 text-sm text-text">
-          synced_assets<span className="text-dim"> // {assets.length}</span>
+        <div className="flex items-center justify-between border-b border-edge px-4 py-3 text-sm text-text">
+          <span>
+            {projectNoun}<span className="text-dim"> // {projects.length}</span>
+          </span>
+          {domainCount > 0 && (
+            <Link href="/domains" className="text-[11px] text-dim hover:text-cyan">
+              {domainCount} domains in Infra →
+            </Link>
+          )}
         </div>
-        {assets.length === 0 ? (
+        {projects.length === 0 ? (
           <p className="px-4 py-6 text-sm text-muted">Nothing synced yet — try a resync.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -111,39 +110,31 @@ export default async function ConnectionDetailPage({ params }: { params: { id: s
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wide text-dim">
                   <th className="px-4 py-2 font-normal">name</th>
-                  <th className="px-4 py-2 font-normal">type</th>
                   <th className="px-4 py-2 font-normal">status</th>
-                  <th className="px-4 py-2 font-normal">details</th>
-                  <th className="px-4 py-2 font-normal">links</th>
+                  <th className="px-4 py-2 font-normal">deployments</th>
+                  <th className="px-4 py-2 font-normal">framework</th>
                 </tr>
               </thead>
               <tbody>
-                {assets.map((a) => (
-                  <tr key={a.id} className="border-t border-edge hover:bg-surface">
-                    <td className="px-4 py-2.5">
-                      <Link href={`/assets/${a.id}`} className="text-text hover:text-cyan">
-                        {a.displayName ?? a.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2.5 text-muted">{a.assetType}</td>
-                    <td className="px-4 py-2.5 text-muted">{a.status ?? "—"}</td>
-                    <td className="px-4 py-2.5 text-[12px] text-dim">{detailBits(a.metadata)}</td>
-                    <td className="px-4 py-2.5">
-                      <span className="flex gap-2">
-                        {a.externalUrl && (
-                          <a href={a.externalUrl} target="_blank" rel="noreferrer" className="text-cyan hover:underline">
-                            open ↗
-                          </a>
-                        )}
-                        {a.providerConsoleUrl && (
-                          <a href={a.providerConsoleUrl} target="_blank" rel="noreferrer" className="text-dim hover:text-cyan">
-                            console ↗
-                          </a>
-                        )}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {projects.map((a) => {
+                  const m = (a.metadata ?? {}) as Record<string, any>;
+                  return (
+                    <tr key={a.id} className="border-t border-edge hover:bg-surface">
+                      <td className="px-4 py-2.5">
+                        <Link href={`/assets/${a.id}`} className="text-text hover:text-cyan">
+                          {a.displayName ?? a.name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={`text-[11px] uppercase ${STATUS[a.status ?? ""] ?? "text-muted"}`}>
+                          ● {a.status ?? "—"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-muted">{m.deploymentCount ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-muted">{m.framework ?? m.language ?? "—"}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

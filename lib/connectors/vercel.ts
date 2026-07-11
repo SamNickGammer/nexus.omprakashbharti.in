@@ -3,7 +3,8 @@ import { ConnectorError, type Connector, type NormalizedAsset, type VerifyResult
 
 // Vercel connector via account token (doc/05 API-token flow).
 // Read-only: verifies identity, syncs projects + their domains + deployment
-// summary. No deploys/mutations.
+// history. Console URLs are derived from Vercel's own deployment inspectorUrl
+// (https://vercel.com/<slug>/<project>/<id>) so they're always correct.
 const API = "https://api.vercel.com";
 
 function headers(token: string) {
@@ -24,13 +25,19 @@ async function get(token: string, path: string) {
   return res.json();
 }
 
-// best-effort: never let a per-project enrichment call fail the whole sync
 async function tryGet(token: string, path: string): Promise<any | null> {
   try {
     return await get(token, path);
   } catch {
     return null;
   }
+}
+
+// inspectorUrl = https://vercel.com/<slug>/<project>/<deploymentId>
+// → https://vercel.com/<slug>/<project>
+function projectBaseFromInspector(inspectorUrl?: string | null): string | null {
+  if (!inspectorUrl) return null;
+  return inspectorUrl.slice(0, inspectorUrl.lastIndexOf("/")) || null;
 }
 
 export const vercel: Connector = {
@@ -46,8 +53,9 @@ export const vercel: Connector = {
   },
 
   async sync(token, ctx) {
-    const slug = ctx?.accountName || "dashboard";
-    const projectUrl = (name: string) => `https://vercel.com/${slug}/${name}`;
+    // account slug for projects with no deployments to derive a URL from
+    const teams = await tryGet(token, "/v2/teams");
+    const fallbackSlug = teams?.teams?.[0]?.slug || ctx?.accountName || "dashboard";
     const out: NormalizedAsset[] = [];
     let until: string | undefined;
 
@@ -57,21 +65,31 @@ export const vercel: Connector = {
       const data = await get(token, `/v9/projects?${qs}`);
 
       for (const p of data.projects ?? []) {
-        // domains for this project
         const domData = await tryGet(token, `/v9/projects/${p.id}/domains?limit=100`);
         const domains: any[] = domData?.domains ?? [];
 
-        // recent deployments (capped) for a count + latest state
         const depData = await tryGet(token, `/v6/deployments?projectId=${p.id}&limit=100`);
-        const deployments: any[] = depData?.deployments ?? [];
+        const rawDeploys: any[] = depData?.deployments ?? [];
         const capped = Boolean(depData?.pagination?.next);
-        const latest = deployments[0] ?? p.latestDeployments?.[0];
+        const latest = rawDeploys[0];
+
+        // authoritative project console URL from Vercel itself
+        const base =
+          projectBaseFromInspector(latest?.inspectorUrl) ?? `https://vercel.com/${fallbackSlug}/${p.name}`;
+
         const prodDomain =
-          domains.find((d) => !d.name?.includes("vercel.app"))?.name ??
+          domains.find((d) => !d.name?.endsWith(".vercel.app"))?.name ??
           p.targets?.production?.alias?.[0] ??
           domains[0]?.name;
 
-        // the project itself → website asset
+        const deployments = rawDeploys.slice(0, 12).map((d) => ({
+          state: (d.state ?? d.readyState ?? "unknown").toString().toLowerCase(),
+          url: d.url ? `https://${d.url}` : null,
+          createdAt: d.created ?? d.createdAt ?? null,
+          target: d.target ?? null,
+          inspectorUrl: d.inspectorUrl ?? null,
+        }));
+
         out.push({
           assetType: "website",
           name: p.name,
@@ -79,29 +97,23 @@ export const vercel: Connector = {
           status: (latest?.state ?? latest?.readyState ?? "unknown").toString().toLowerCase(),
           environment: "production",
           externalId: String(p.id),
-          externalUrl: prodDomain ? `https://${prodDomain}` : undefined,
-          providerConsoleUrl: projectUrl(p.name),
+          externalUrl: prodDomain ? `https://${prodDomain}` : latest?.url ? `https://${latest.url}` : undefined,
+          providerConsoleUrl: base,
           metadata: {
             framework: p.framework,
             nodeVersion: p.nodeVersion,
             gitRepo: p.link?.repo ?? null,
             updatedAt: p.updatedAt,
             productionDomain: prodDomain ?? null,
-            deploymentCount: capped ? `${deployments.length}+` : deployments.length,
-            latestDeployment: latest
-              ? {
-                  state: (latest.state ?? latest.readyState ?? "unknown").toString().toLowerCase(),
-                  url: latest.url ? `https://${latest.url}` : null,
-                  createdAt: latest.created ?? latest.createdAt ?? null,
-                }
-              : null,
+            deploymentCount: capped ? `${rawDeploys.length}+` : rawDeploys.length,
+            latestDeployment: deployments[0] ?? null,
+            deployments,
             domains: domains.map((d) => ({ name: d.name, verified: Boolean(d.verified) })),
           },
         });
 
-        // each custom domain → domain asset (shows up in Infra, cross-links back)
         for (const d of domains) {
-          if (d.name?.endsWith(".vercel.app")) continue; // skip system domains
+          if (d.name?.endsWith(".vercel.app")) continue;
           out.push({
             assetType: "domain",
             name: d.name,
@@ -109,7 +121,7 @@ export const vercel: Connector = {
             status: d.verified ? "verified" : "unverified",
             externalId: d.name,
             externalUrl: `https://${d.name}`,
-            providerConsoleUrl: `${projectUrl(p.name)}/settings/domains`,
+            providerConsoleUrl: `${base}/settings/domains`,
             metadata: {
               apexName: d.apexName ?? null,
               project: p.name,

@@ -1,55 +1,61 @@
-import { StatusBadge, type Status } from "../components/status-badge";
+import Link from "next/link";
+import { getSession } from "@/lib/auth";
+import { listAllAssets, listConnections } from "@/lib/connections";
 
-// Overview shell. Placeholder data until connectors + Neon land (Phase 2+).
-const STATS = [
-  { label: "assets_tracked", value: "0", hint: "connect a provider", tone: "text-text" },
-  { label: "healthy", value: "0", hint: "of 0 checked", tone: "text-ok" },
-  { label: "degraded", value: "0", hint: "needs attention", tone: "text-warn" },
-  { label: "open_alerts", value: "5", hint: "3 high · 2 medium", tone: "text-down" },
-];
+const ATTENTION = new Set(["unknown", "unverified", "degraded", "offline", "error", "failed"]);
 
-const ASSETS: {
-  name: string;
-  ref: string;
-  type: string;
-  cpu: string;
-  status: Status;
-}[] = [
-  { name: "nexus.omprakashbharti.in", ref: "domain · cloudflare", type: "Domain", cpu: "—", status: "healthy" },
-  { name: "primary-db", ref: "10.0.1.50 · neon", type: "Database", cpu: "65%", status: "degraded" },
-  { name: "auth-worker-main", ref: "192.168.2.45 · vps", type: "Server", cpu: "68%", status: "high" },
-  { name: "payment-processor", ref: "192.168.3.11 · vps", type: "Server", cpu: "15%", status: "deploying" },
-  { name: "search-indexer", ref: "10.0.4.12 · vps", type: "Server", cpu: "—", status: "offline" },
-];
+const TONE: Record<string, string> = {
+  ready: "text-ok", active: "text-ok", verified: "text-ok", public: "text-ok",
+  degraded: "text-warn", unverified: "text-warn", building: "text-blue", queued: "text-blue",
+  error: "text-down", offline: "text-down", unknown: "text-muted",
+};
+const tone = (s?: string | null) => (s && TONE[s]) || "text-muted";
 
-export default function OverviewPage() {
+function host(url?: string | null): string {
+  if (!url) return "—";
+  try { return new URL(url).host; } catch { return url; }
+}
+
+export default async function OverviewPage() {
+  const session = await getSession();
+  const [assets, conns] = session
+    ? await Promise.all([listAllAssets(session.workspaceId), listConnections(session.workspaceId)])
+    : [[], []];
+
+  const projects = assets.filter((a) => a.assetType === "website");
+  const domains = assets.filter((a) => a.assetType === "domain");
+  const attention = assets.filter((a) => a.status && ATTENTION.has(a.status));
+
+  const stats = [
+    { label: "assets_tracked", value: assets.length, hint: `${conns.length} connections`, tone: "text-text" },
+    { label: "projects", value: projects.length, hint: "websites & apps", tone: "text-ok" },
+    { label: "domains", value: domains.length, hint: "custom domains", tone: "text-text" },
+    { label: "needs_attention", value: attention.length, hint: "unverified / errored", tone: attention.length ? "text-down" : "text-ok" },
+  ];
+
   return (
     <div className="space-y-6 p-6">
-      {/* hero: terminal status header — the signature moment */}
       <section className="term-panel p-5">
         <div className="grad-rule absolute inset-x-0 top-0" />
-        <p className="text-[11px] tracking-[0.3em] text-dim">OVERVIEW / SPARKPIXEL</p>
+        <p className="text-[11px] tracking-[0.3em] text-dim">OVERVIEW</p>
         <div className="mt-3 space-y-1 text-sm leading-relaxed">
           <p>
-            <span className="text-cyan">$</span>{" "}
-            <span className="text-text">nexus status --all</span>
+            <span className="text-cyan">$</span> <span className="text-text">nexus status --all</span>
           </p>
           <p className="text-muted">
-            <span className="text-ok">●</span> operational
+            <span className={attention.length ? "text-warn" : "text-ok"}>●</span>{" "}
+            {attention.length ? "degraded" : "operational"}
             <span className="mx-3 text-dim">|</span>
-            uptime <span className="text-text">42d 06h</span>
+            assets <span className="text-text">{assets.length}</span>
             <span className="mx-3 text-dim">|</span>
-            region <span className="text-text">blr-1</span>
-            <span className="mx-3 text-dim">|</span>
-            last sync <span className="text-text">just now</span>
+            connections <span className="text-text">{conns.length}</span>
             <span className="cursor ml-2 align-middle" />
           </p>
         </div>
       </section>
 
-      {/* stat rail */}
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {STATS.map((s) => (
+        {stats.map((s) => (
           <div key={s.label} className="term-panel p-4">
             <p className="text-[11px] tracking-wide text-dim">{s.label}</p>
             <p className={`mt-2 text-3xl font-bold ${s.tone}`}>{s.value}</p>
@@ -58,44 +64,51 @@ export default function OverviewPage() {
         ))}
       </section>
 
-      {/* assets table */}
       <section className="term-panel">
         <div className="flex items-center justify-between border-b border-edge px-4 py-3">
           <span className="text-sm text-text">
-            active_instances<span className="text-dim"> // {ASSETS.length}</span>
+            projects<span className="text-dim"> // {projects.length}</span>
           </span>
-          <span className="text-[11px] text-dim">realtime</span>
+          <Link href="/integrations" className="text-[11px] text-dim hover:text-cyan">+ connect</Link>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wide text-dim">
-                <th className="px-4 py-2 font-normal">name &amp; ref</th>
-                <th className="px-4 py-2 font-normal">type</th>
-                <th className="px-4 py-2 font-normal">cpu</th>
-                <th className="px-4 py-2 font-normal">status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ASSETS.map((a) => (
-                <tr
-                  key={a.name}
-                  className="border-t border-edge transition-colors hover:bg-surface"
-                >
-                  <td className="px-4 py-3">
-                    <div className="text-text">{a.name}</div>
-                    <div className="text-[11px] text-dim">{a.ref}</div>
-                  </td>
-                  <td className="px-4 py-3 text-muted">{a.type}</td>
-                  <td className="px-4 py-3 text-muted">{a.cpu}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={a.status} />
-                  </td>
+
+        {assets.length === 0 ? (
+          <div className="px-4 py-10 text-center">
+            <p className="text-sm text-muted">No assets yet.</p>
+            <Link href="/integrations" className="mt-2 inline-block text-sm text-cyan hover:underline">
+              Connect a provider to start syncing →
+            </Link>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wide text-dim">
+                  <th className="px-4 py-2 font-normal">name</th>
+                  <th className="px-4 py-2 font-normal">source</th>
+                  <th className="px-4 py-2 font-normal">domain</th>
+                  <th className="px-4 py-2 font-normal">status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {projects.map((a) => (
+                  <tr key={a.id} className="border-t border-edge hover:bg-surface">
+                    <td className="px-4 py-3">
+                      <Link href={`/assets/${a.id}`} className="text-text hover:text-cyan">
+                        {a.displayName ?? a.name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-dim">{a.provider} · {a.accountLabel}</td>
+                    <td className="px-4 py-3 text-muted">{host(a.externalUrl)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[11px] uppercase ${tone(a.status)}`}>● {a.status ?? "—"}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

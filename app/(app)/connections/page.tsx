@@ -68,7 +68,7 @@ export default async function ConnectionsPage() {
                     <span className={`text-[11px] uppercase ${STATUS[c.status] ?? "text-dim"}`}>● {c.status}</span>
                   </div>
                   <div className="text-[11px] text-dim">
-                    {provider?.name} · {c.assetCount} assets · synced {ago(c.lastSyncAt)}
+                    {provider?.name} · {c.projectCount} projects · {c.domainCount} domains · synced {ago(c.lastSyncAt)}
                   </div>
                 </div>
                 <span className="text-dim">›</span>

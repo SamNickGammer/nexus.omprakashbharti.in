@@ -96,9 +96,36 @@ export default async function AssetDetailPage({ params }: { params: { id: string
             <Stat k="synced" v={when(asset.lastSyncedAt)} />
           </section>
 
+          {/* deployment log */}
           <section className="term-panel">
             <div className="border-b border-edge px-4 py-3 text-sm text-text">
-              domains<span className="text-dim"> // {linked.length}</span>
+              deployments<span className="text-dim"> // {m.deploymentCount ?? 0}</span>
+            </div>
+            {!Array.isArray(m.deployments) || m.deployments.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-muted">No deployments found.</p>
+            ) : (
+              <div className="divide-y divide-edge">
+                {(m.deployments as any[]).map((d, i) => (
+                  <div key={i} className="flex items-center gap-4 px-4 py-2.5 text-[13px]">
+                    <span className={`w-24 shrink-0 text-[11px] uppercase ${tone(d.state)}`}>● {d.state}</span>
+                    <span className="w-20 shrink-0 truncate text-dim">{d.target ?? "—"}</span>
+                    <span className="min-w-0 flex-1 truncate text-muted">{d.url ?? "—"}</span>
+                    <span className="text-dim">{when(d.createdAt)}</span>
+                    {d.inspectorUrl && (
+                      <a href={d.inspectorUrl} target="_blank" rel="noreferrer" className="text-cyan hover:underline">
+                        inspect ↗
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* connected domains (cross-linked) */}
+          <section className="term-panel">
+            <div className="border-b border-edge px-4 py-3 text-sm text-text">
+              connected_domains<span className="text-dim"> // {linked.length}</span>
             </div>
             {linked.length === 0 ? (
               <p className="px-4 py-6 text-sm text-muted">No custom domains connected.</p>

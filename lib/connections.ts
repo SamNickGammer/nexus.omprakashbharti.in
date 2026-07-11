@@ -169,6 +169,7 @@ export async function getAccount(accountId: string, workspaceId: string) {
 }
 
 export async function listConnections(workspaceId: string) {
+  // reliable counts via left join + FILTER (the correlated subquery returned 0)
   return db
     .select({
       id: providerAccounts.id,
@@ -177,10 +178,14 @@ export async function listConnections(workspaceId: string) {
       externalAccountName: providerAccounts.externalAccountName,
       status: providerAccounts.status,
       lastSyncAt: providerAccounts.lastSyncAt,
-      assetCount: sql<number>`(select count(*)::int from ${assets} where ${assets.providerAccountId} = ${providerAccounts.id})`,
+      projectCount: sql<number>`count(*) filter (where ${assets.assetType} = 'website')::int`,
+      domainCount: sql<number>`count(*) filter (where ${assets.assetType} = 'domain')::int`,
+      assetCount: sql<number>`count(${assets.id})::int`,
     })
     .from(providerAccounts)
+    .leftJoin(assets, eq(assets.providerAccountId, providerAccounts.id))
     .where(eq(providerAccounts.workspaceId, workspaceId))
+    .groupBy(providerAccounts.id)
     .orderBy(desc(providerAccounts.createdAt));
 }
 

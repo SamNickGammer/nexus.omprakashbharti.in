@@ -193,6 +193,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
               assetId={asset.id}
               workspaceId={session.workspaceId}
               defaultBranch={m.defaultBranch}
+              repoFullName={asset.name}
             />
           </Suspense>
         </>
@@ -207,10 +208,12 @@ async function RepoLiveDetail({
   assetId,
   workspaceId,
   defaultBranch,
+  repoFullName,
 }: {
   assetId: string;
   workspaceId: string;
   defaultBranch?: string;
+  repoFullName?: string;
 }) {
   const repo = await getRepoLiveDetail(assetId, workspaceId);
   if (!repo) {
@@ -260,7 +263,7 @@ async function RepoLiveDetail({
         )}
       </section>
 
-      <RepoTabs detail={repo} defaultBranch={defaultBranch} />
+      <RepoTabs detail={repo} defaultBranch={defaultBranch} repoFullName={repoFullName} />
     </>
   );
 }

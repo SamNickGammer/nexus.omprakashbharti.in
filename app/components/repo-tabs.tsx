@@ -3,6 +3,8 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { RepoDetail } from "@/lib/connectors/github";
 
 type Tab = "readme" | "commits" | "branches";
@@ -12,8 +14,43 @@ function shortDate(d: string | null) {
   return new Date(d).toISOString().slice(0, 10);
 }
 
-export function RepoTabs({ detail, defaultBranch }: { detail: RepoDetail; defaultBranch?: string }) {
+// GitHub-like sanitize schema: allow the presentational attributes READMEs use.
+const schema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    img: [...(defaultSchema.attributes?.img ?? []), "width", "height", "align"],
+    div: [...(defaultSchema.attributes?.div ?? []), "align"],
+    p: [...(defaultSchema.attributes?.p ?? []), "align"],
+    h1: ["align"], h2: ["align"], h3: ["align"], h4: ["align"],
+    table: ["align"], td: ["align"], th: ["align"],
+    a: [...(defaultSchema.attributes?.a ?? []), "align"],
+  },
+  tagNames: [...(defaultSchema.tagNames ?? []), "picture", "source"],
+};
+
+export function RepoTabs({
+  detail,
+  defaultBranch,
+  repoFullName,
+}: {
+  detail: RepoDetail;
+  defaultBranch?: string;
+  repoFullName?: string;
+}) {
   const [tab, setTab] = useState<Tab>("readme");
+
+  // resolve relative README image/link URLs the way GitHub does
+  const branch = defaultBranch || "main";
+  const rawBase = repoFullName ? `https://raw.githubusercontent.com/${repoFullName}/${branch}/` : "";
+  const blobBase = repoFullName ? `https://github.com/${repoFullName}/blob/${branch}/` : "";
+  const resolveUrl = (url: string, key: string): string => {
+    if (!url) return url;
+    if (/^(https?:|mailto:|tel:|#|data:)/i.test(url)) return url;
+    if (url.startsWith("//")) return "https:" + url;
+    const base = key === "src" ? rawBase : blobBase;
+    return base ? base + url.replace(/^\.?\/*/, "") : url;
+  };
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: "readme", label: "readme" },
@@ -42,7 +79,13 @@ export function RepoTabs({ detail, defaultBranch }: { detail: RepoDetail; defaul
         <div className="p-6">
           {detail.readme ? (
             <div className="readme-md max-w-3xl text-[14px] leading-relaxed text-muted">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{detail.readme}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw, [rehypeSanitize, schema]]}
+                urlTransform={resolveUrl}
+              >
+                {detail.readme}
+              </ReactMarkdown>
             </div>
           ) : (
             <p className="text-sm text-muted">No README found in this repository.</p>

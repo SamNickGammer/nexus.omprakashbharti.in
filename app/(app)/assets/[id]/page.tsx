@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
@@ -47,7 +48,6 @@ export default async function AssetDetailPage({ params }: { params: { id: string
   if (!data) notFound();
 
   const { asset, account, linked } = data;
-  const repo = asset.assetType === "repository" ? await getRepoLiveDetail(asset.id, session.workspaceId) : null;
   const provider = account ? getProvider(account.provider) : undefined;
   const m = (asset.metadata ?? {}) as Record<string, any>;
   const latest = m.latestDeployment as { state?: string; url?: string; createdAt?: unknown } | null;
@@ -168,27 +168,11 @@ export default async function AssetDetailPage({ params }: { params: { id: string
       {/* repository (GitHub) */}
       {asset.assetType === "repository" && (
         <>
-          {/* languages + stat chips */}
-          <section className="term-panel space-y-4 p-5">
-            <div>
-              <div className="mb-2 text-[11px] uppercase tracking-wide text-dim">languages</div>
-              <div className="flex flex-wrap gap-2">
-                {repo && repo.languages.length > 0 ? (
-                  repo.languages.map((l) => (
-                    <span key={l.name} className="inline-flex items-center gap-1.5 border border-edge bg-panel px-2 py-1 text-[12px] text-text">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: langColor(l.name) }} />
-                      {l.name}
-                      <span className="text-dim">{l.pct}%</span>
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-sm text-muted">{m.language ?? "—"}</span>
-                )}
-              </div>
-            </div>
-
+          {/* instant: stat chips from stored metadata */}
+          <section className="term-panel p-5">
             <div className="flex flex-wrap gap-2">
               {[
+                ["language", m.language ?? "—"],
                 ["★ stars", m.stars ?? 0],
                 ["open issues", m.openIssues ?? 0],
                 ["default", m.defaultBranch ?? "—"],
@@ -203,33 +187,112 @@ export default async function AssetDetailPage({ params }: { params: { id: string
             </div>
           </section>
 
-          {/* contributors */}
-          <section className="term-panel p-5">
-            <div className="mb-3 text-[11px] uppercase tracking-wide text-dim">
-              contributors{repo?.contributors.length ? ` // ${repo.contributors.length}` : ""}
-            </div>
-            {repo && repo.contributors.length > 0 ? (
-              <div className="flex flex-wrap gap-4">
-                {repo.contributors.map((c) => (
-                  <a key={c.login} href={c.htmlUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-cyan">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={c.avatarUrl} alt={c.login} width={28} height={28} className="rounded-full border border-edge" referrerPolicy="no-referrer" />
-                    <span className="text-[13px] text-text">{c.login}</span>
-                    <span className="text-[11px] text-dim">{c.contributions}</span>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted">
-                {repo ? "No contributor data." : "Connect GitHub and open this repo to load contributors."}
-              </p>
-            )}
-          </section>
-
-          {/* readme / commits / branches */}
-          {repo && <RepoTabs detail={repo} defaultBranch={m.defaultBranch} />}
+          {/* streamed: full languages, contributors, readme/commits/branches */}
+          <Suspense fallback={<RepoLiveLoading />}>
+            <RepoLiveDetail
+              assetId={asset.id}
+              workspaceId={session.workspaceId}
+              defaultBranch={m.defaultBranch}
+            />
+          </Suspense>
         </>
       )}
+    </div>
+  );
+}
+
+// Async — fetches live GitHub detail; streamed in via <Suspense> so the rest
+// of the page shows instantly.
+async function RepoLiveDetail({
+  assetId,
+  workspaceId,
+  defaultBranch,
+}: {
+  assetId: string;
+  workspaceId: string;
+  defaultBranch?: string;
+}) {
+  const repo = await getRepoLiveDetail(assetId, workspaceId);
+  if (!repo) {
+    return (
+      <section className="term-panel p-5">
+        <p className="text-sm text-muted">Couldn&apos;t load live repository data. Try a resync.</p>
+      </section>
+    );
+  }
+
+  return (
+    <>
+      <section className="term-panel p-5">
+        <div className="mb-2 text-[11px] uppercase tracking-wide text-dim">languages</div>
+        <div className="flex flex-wrap gap-2">
+          {repo.languages.length > 0 ? (
+            repo.languages.map((l) => (
+              <span key={l.name} className="inline-flex items-center gap-1.5 border border-edge bg-panel px-2 py-1 text-[12px] text-text">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: langColor(l.name) }} />
+                {l.name}
+                <span className="text-dim">{l.pct}%</span>
+              </span>
+            ))
+          ) : (
+            <span className="text-sm text-muted">—</span>
+          )}
+        </div>
+      </section>
+
+      <section className="term-panel p-5">
+        <div className="mb-3 text-[11px] uppercase tracking-wide text-dim">
+          contributors{repo.contributors.length ? ` // ${repo.contributors.length}` : ""}
+        </div>
+        {repo.contributors.length > 0 ? (
+          <div className="flex flex-wrap gap-4">
+            {repo.contributors.map((c) => (
+              <a key={c.login} href={c.htmlUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-cyan">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={c.avatarUrl} alt={c.login} width={28} height={28} className="rounded-full border border-edge" referrerPolicy="no-referrer" />
+                <span className="text-[13px] text-text">{c.login}</span>
+                <span className="text-[11px] text-dim">{c.contributions}</span>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted">No contributor data.</p>
+        )}
+      </section>
+
+      <RepoTabs detail={repo} defaultBranch={defaultBranch} />
+    </>
+  );
+}
+
+// Skeleton shown while the live GitHub detail loads.
+function RepoLiveLoading() {
+  return (
+    <div className="space-y-6" aria-busy>
+      <section className="term-panel p-5">
+        <div className="mb-2 text-[11px] uppercase tracking-wide text-dim">languages</div>
+        <div className="flex flex-wrap gap-2">
+          {[64, 48, 40].map((w, i) => (
+            <span key={i} className="h-7 animate-pulse border border-edge bg-panel" style={{ width: w }} />
+          ))}
+        </div>
+      </section>
+      <section className="term-panel p-5">
+        <div className="mb-3 text-[11px] uppercase tracking-wide text-dim">contributors</div>
+        <div className="flex flex-wrap gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="h-7 w-7 animate-pulse rounded-full border border-edge bg-panel" />
+              <span className="h-3 w-16 animate-pulse bg-panel" />
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="term-panel p-5">
+        <div className="flex items-center gap-2 text-sm text-dim">
+          <span className="cursor" /> loading readme, commits &amp; branches…
+        </div>
+      </section>
     </div>
   );
 }

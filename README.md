@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="logo_withoutname.png" alt="Nexus" width="120" />
+<img src="https://raw.githubusercontent.com/SamNickGammer/nexus.omprakashbharti.in/refs/heads/main/public/logo_full.png" alt="Nexus" width="440" />
 
-# NEXUS
+### A developer operations cockpit
 
-**A developer operations cockpit.** One terminal-style dashboard that indexes every asset you own — repos, projects, domains, databases, servers — from every provider, into one searchable, cross-linked workspace.
+One terminal-style dashboard that indexes every asset you own — repos, projects, domains, databases, servers — from every provider, into one searchable, cross-linked workspace.
 
 <br />
 
